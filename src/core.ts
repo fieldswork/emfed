@@ -1,4 +1,4 @@
-import { Toot, getToots, getPostAndReplyToots } from "./client.js";
+import { Toot, getToots, getPostAndReplyToots, getEmojiMap } from "./client.js";
 import DOMPurify from "dompurify";
 
 /**
@@ -63,7 +63,7 @@ function html(strings: TemplateStringsArray, ...subs: TmpVal[]): SafeString {
 /**
  * Render a single toot object as an HTML string.
  */
-function renderToot(toot: Toot): string {
+function renderToot(toot: Toot, emojiMap: Record<string, string> = {}): string {
   // Is this a boost (reblog)?
   let boost = null;
   if (toot.reblog) {
@@ -78,6 +78,7 @@ function renderToot(toot: Toot): string {
 
   const date = new Date(toot.created_at).toLocaleString();
   const images = toot.media_attachments.filter((att) => att.type === "image");
+  const contentWithEmojis = insertEmojis(toot.content, emojiMap);
 
   return html`<li class="toot">
     <a class="permalink" href="${toot.url}">
@@ -86,15 +87,15 @@ function renderToot(toot: Toot): string {
     ${boost &&
     html` <a class="user boost" href="${boost.user_url}">
       <img class="avatar" width="23" height="23" src="${boost.avatar}" />
-      <span class="display-name">${boost.display_name}</span>
+      <span class="display-name">${safe(DOMPurify.sanitize(insertEmojis(toot.account.display_name, emojiMap)))}</span>
       <span class="username">@${boost.username}</span>
     </a>`}
     <a class="user" href="${toot.account.url}">
       <img class="avatar" width="46" height="46" src="${toot.account.avatar}" />
-      <span class="display-name">${toot.account.display_name}</span>
+      <span class="display-name">${safe(DOMPurify.sanitize(insertEmojis(toot.account.display_name, emojiMap)))}</span>
       <span class="username">@${toot.account.username}</span>
     </a>
-    <div class="body">${safe(DOMPurify.sanitize(toot.content))}</div>
+    <div class="body">${safe(DOMPurify.sanitize(contentWithEmojis))}</div>
     ${images.map(
       (att) =>
         html` <a
@@ -120,20 +121,25 @@ function renderToot(toot: Toot): string {
 export async function loadToots(element: Element) {
   // Fetch toots based on the element's `data-toot-*` attributes.
   const el = element as HTMLAnchorElement;
-  const toots = await getToots(
-    el.href,
-    el.dataset.tootAccountId,
-    Number(el.dataset.tootLimit ?? 5),
-    el.dataset.excludeReplies === "true",
-    el.dataset.excludeReblogs === "true",
-  );
+  
+  // Fetch toots and emojis concurrently
+  const [toots, emojiMap] = await Promise.all([
+    getToots(
+      el.href,
+      el.dataset.tootAccountId,
+      Number(el.dataset.tootLimit ?? 5),
+      el.dataset.excludeReplies === "true",
+      el.dataset.excludeReblogs === "true",
+    ),
+    getEmojiMap(el.href)
+  ]);
 
   // Construct the HTML content.
   const list = document.createElement("ol");
   list.classList.add("toots");
   el.replaceWith(list);
   for (const toot of toots) {
-    const html = renderToot(toot);
+    const html = renderToot(toot, emojiMap);
     list.insertAdjacentHTML("beforeend", html);
   }
 }
@@ -157,6 +163,13 @@ export async function loadTootPostAndReplies(element: Element) {
   }  
 }
 
+function insertEmojis(content: string, emojiMap: Record<string, string>): string {
+  return content.replace(/:([a-zA-Z0-9_]+):/g, (match, shortcode) => {
+    const url = emojiMap[shortcode];
+    if (!url) return match; // not a custom emoji
+    return `<img class="custom-emoji" src="${url}" alt=":${shortcode}:" title=":${shortcode}:"/>`;
+  });
+}
 
 /**
  * Transform all links on the page marked with the `mastodon-feed` class.

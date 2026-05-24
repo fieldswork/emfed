@@ -90,3 +90,14 @@ export async function getPostAndReplyToots(
   }
   return toots;
 }
+
+export async function getEmojiMap(
+  instanceURL: string
+): Promise<Record<string, string>> {
+  const url = new URL(instanceURL);
+  url.pathname = "/api/v1/custom_emojis"; // https://docs.joinmastodon.org/methods/custom_emojis/#get
+  const emojiList: { shortcode: string; url: string }[] = 
+    await (await fetch(url)).json();
+  
+  return Object.fromEntries(emojiList.map(({ shortcode, url }) => [shortcode, url]));
+}
