@@ -142,7 +142,7 @@ export async function loadToots(element: Element) {
   const emojiMaps: Record<string, Record<string, string>> = {};
   await Promise.all(
     [...servers].map(async (server) => {
-      emojiMaps[server] = await getEmojiMap(server);
+      emojiMaps[server] = await getEmojiMap(server).catch(() => ({}));
     })
   );
 
@@ -181,7 +181,7 @@ export async function loadTootPostAndReplies(element: Element) {
   const emojiMaps: Record<string, Record<string, string>> = {};
   await Promise.all(
     [...servers].map(async (server) => {
-      emojiMaps[server] = await getEmojiMap(server);
+      emojiMaps[server] = await getEmojiMap(server).catch(() => ({}));
     })
   );
 
