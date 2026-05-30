@@ -201,7 +201,7 @@ function insertEmojis(content: string, emojiMap: Record<string, string>): string
   return content.replace(/:([a-zA-Z0-9_]+):/g, (match, shortcode) => {
     const url = emojiMap[shortcode];
     if (!url) return match; // If shortcode isn't in emojiMap, displays shortcode as fallback
-    return `<img class="custom-emoji" src="${url}" alt=":${shortcode}:" title=":${shortcode}:"/>`;
+    return `<img class="custom-emoji" loading="lazy" src="${url}" alt=":${shortcode}:" title=":${shortcode}:"/>`;
   });
 }
 
